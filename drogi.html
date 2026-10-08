@@ -1,6 +1,6 @@
 <!DOCTYPE html><html lang="pl"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>Jeziorak i okolice – drogi dla auta i parkingi v1</title>
+<title>Jeziorak i okolice – drogi dla auta i parkingi v2</title>
 <style>/* required styles */
 
 .leaflet-pane,
@@ -720,15 +720,20 @@ function links(la,lo){const q=la.toFixed(5)+','+lo.toFixed(5);return {
   g:`https://www.google.com/maps/search/?api=1&query=${q}`, gnav:`https://www.google.com/maps/dir/?api=1&destination=${q}&travelmode=driving`};}
 const map = L.map('map',{zoomControl:true,preferCanvas:true});
 const LAYERS = [
- ['Mapa (OpenStreetMap, polskie nazwy)', L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap contributors'})],
+ ['Mapa (OpenStreetMap France, polskie nazwy)', L.tileLayer('https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png',{maxZoom:19,subdomains:'abc',attribution:'© OpenStreetMap contributors, kafelki: OpenStreetMap France'})],
+ ['Mapa Esri (drogi i miejscowości)', L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:'Tiles © Esri'})],
  ['Topograficzna (OpenTopoMap)', L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',{maxZoom:17,subdomains:'abc',attribution:'© OpenStreetMap contributors, SRTM | © OpenTopoMap (CC-BY-SA)'})],
  ['Satelita (Esri)', L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:'Tiles © Esri'})]
 ];
-let active=0; LAYERS[0][1].addTo(map);
-LAYERS.forEach(([n,l],i)=>{let ok=0,err=0; l.on('tileload',()=>{ok++;}); l.on('tileerror',()=>{err++; if(i===active&&ok===0&&err>=6){map.removeLayer(l); active=(i+1)%LAYERS.length; LAYERS[active][1].addTo(map);}});});
+// tile.openstreetmap.org celowo nieużywany: bez nagłówka Referer (np. plik otwarty z dysku) zwraca kafelki „Access blocked” z kodem 200
+let active=0; const TOK=LAYERS.map(()=>0);
+function nextLayer(i){ if(i!==active) return; map.removeLayer(LAYERS[i][1]); active=(i+1)%LAYERS.length; LAYERS[active][1].addTo(map); watchLayer(active); }
+function watchLayer(i){ setTimeout(()=>{ if(i===active&&TOK[i]===0) nextLayer(i); },7000); }
+LAYERS.forEach(([n,l],i)=>{let err=0; l.on('tileload',()=>{TOK[i]++;}); l.on('tileerror',()=>{err++; if(i===active&&TOK[i]===0&&err>=4) nextLayer(i);});});
+LAYERS[0][1].addTo(map); watchLayer(0);
 const base={}; LAYERS.forEach(([n,l])=>base[n]=l);
 L.control.layers(base,null,{position:'bottomright'}).addTo(map);
-map.on('baselayerchange',e=>{active=LAYERS.findIndex(x=>x[1]===e.layer);});
+map.on('baselayerchange',e=>{active=LAYERS.findIndex(x=>x[1]===e.layer); watchLayer(active);});
 L.control.scale({imperial:false}).addTo(map);
 const rend = L.canvas({padding:0.3,tolerance:10});
 const G = {}; ORDER.forEach(k=>G[k]=L.layerGroup());
@@ -770,7 +775,7 @@ lc.innerHTML = ORDER.map(k=>`<label><input type="checkbox" data-k="${k}" checked
  '<label><input type="checkbox" data-k="lp" checked><span class="pk lp">P</span><span>Miejsce postoju pojazdów Lasów Państwowych – oficjalne (89 miejsc)</span></label>'+
  '<label><input type="checkbox" data-k="pk" checked><span class="pk pk_">P</span><span>Parking publiczny z OSM (1206 miejsc) <small>(po przybliżeniu)</small></span></label>'+
  '<div class="note"><b>Ustawa o lasach, art. 29:</b> w lesie autem tylko drogami publicznymi, a leśnymi – tylko oznakowanymi drogowskazami dopuszczającymi ruch; postój na drogach leśnych tylko w miejscach oznakowanych. '+
- 'Rozstrzyga oznakowanie na miejscu. Dotknij linii lub P – szczegóły.<br>Dane: © OpenStreetMap (drogi, lasy, parkingi; pobrane 10.2026), Bank Danych o Lasach – Lasy Państwowe (miejsca postoju pojazdów). Wersja v1.</div>';
+ 'Rozstrzyga oznakowanie na miejscu. Dotknij linii lub P – szczegóły.<br>Dane: © OpenStreetMap (drogi, lasy, parkingi; pobrane 10.2026), Bank Danych o Lasach – Lasy Państwowe (miejsca postoju pojazdów). Wersja v2.</div>';
 lc.addEventListener('change',ev=>{const k=ev.target.dataset.k; if(!k) return; on[k]=ev.target.checked; applyVis(); renderList();});
 const leg=document.getElementById('leg');
 document.getElementById('lclose').onclick=()=>leg.classList.add('hide');
